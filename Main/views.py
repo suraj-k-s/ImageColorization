@@ -10,34 +10,53 @@ from io import BytesIO
 
 class autoencoder_model(nn.Module):
     def __init__(self):
-        super(autoencoder_model, self).__init__()
-
-        # Autoencoder architecture
-        self.down1 = nn.Conv2d(1, 64, 3, stride=2)
-        self.down2 = nn.Conv2d(64, 128, 3, stride=2, padding=1)
-        self.down3 = nn.Conv2d(128, 256, 3, stride=2, padding=1)
-        self.down4 = nn.Conv2d(256, 512, 3, stride=2, padding=1)
-
-        self.up1 = nn.ConvTranspose2d(512, 256, 3, stride=2, padding=1)
-        self.up2 = nn.ConvTranspose2d(512, 128, 3, stride=2, padding=1)
-        self.up3 = nn.ConvTranspose2d(256, 64, 3, stride=2, padding=1, output_padding=1)
-        self.up4 = nn.ConvTranspose2d(128, 3, 3, stride=2, output_padding=1)
-
-        self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
+        super().__init__()
+        
+        # Encoder (Downsampling)
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 32, 3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 64, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 128, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 256, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 512, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(512)
+        )
+        
+        # Decoder (Upsampling)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(512, 256, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.ConvTranspose2d(256, 128, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.ConvTranspose2d(128, 64, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.ConvTranspose2d(32, 3, 3, stride=1, padding=1),
+            nn.Sigmoid()
+        )
 
     def forward(self, x):
-        d1 = self.relu(self.down1(x))
-        d2 = self.relu(self.down2(d1))
-        d3 = self.relu(self.down3(d2))
-        d4 = self.relu(self.down4(d3))
-
-        u1 = self.relu(self.up1(d4))
-        u2 = self.relu(self.up2(torch.cat((u1, d3), dim=1)))
-        u3 = self.relu(self.up3(torch.cat((u2, d2), dim=1)))
-        u4 = self.sigmoid(self.up4(torch.cat((u3, d1), dim=1)))
-
-        return u4
+        # Encoder
+        x = self.encoder(x)
+        
+        # Decoder
+        x = self.decoder(x)
+        
+        return x
 
 # Define your view
 def index(request):
@@ -80,12 +99,12 @@ def index(request):
 def predict_img(input_gray):
     # Load the saved model
     model = autoencoder_model()
-    model.load_state_dict(torch.load('models/12_new_model_various_pics.pth'))
+    model.load_state_dict(torch.load('models/landscape_model_epoch_30.pth'))
 
     model.eval()
 
     transform = transforms.Compose([
-        transforms.Resize((150, 150)),
+        transforms.Resize((160, 160)),
         transforms.ToTensor(),
     ])
 
